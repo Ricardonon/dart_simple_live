@@ -1,70 +1,77 @@
-name: Build SimpleLive APK
+name: app-build-android-dev
 on:
   workflow_dispatch:
-
+  push:
+    tags:
+      - "dev_v*"
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # 签出dev分支代码
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
 
-      - name: Setup Flutter
+      # APK签名：base64密钥还原
+      - name: Download Android keystore
+        id: android_keystore
+        uses: timheuer/base64-to-file@v1.2
+        with:
+          fileName: keystore.jks
+          encodedString: ${{ secrets.KEYSTORE_BASE64 }}
+
+      # 生成android key.properties签名配置
+      - name: Create key.properties
+        run: |
+          echo "storeFile=${{ steps.android_keystore.outputs.filePath }}" > simple_live_app/android/key.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> simple_live_app/android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> simple_live_app/android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> simple_live_app/android/key.properties
+
+      # JDK17
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+          cache: "gradle"
+
+      # Flutter环境
+      - name: Flutter action
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.3'
+          flutter-version: "3.38.x"
           cache: true
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      # 直接写入许可文件，100%非交互，不会卡住
+      # 预写入Android License，解决之前卡死问题
       - name: Pre accept Android SDK licenses
         run: |
           mkdir -p ${ANDROID_HOME}/licenses
           echo "24333f8a63b6825ea9c551483c82fa59b6ef137c" > ${ANDROID_HOME}/licenses/android-sdk-license
           echo "84831b9409646a918e30573bab4c9c9146dabd14" > ${ANDROID_HOME}/licenses/android-sdk-preview-license
 
-      # Flutter国内镜像加速
-      - name: Set Flutter pub mirror
-        run: |
-          echo "PUB_HOSTED_URL=https://pub.flutter-io.cn" >> $GITHUB_ENV
-          echo "FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn" >> $GITHUB_ENV
-
-      # 缓存dart依赖，大幅减少后续编译等待
-      - name: Cache Flutter Pub
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-            **/build
-          key: flutterpub-${{ hashFiles('**/pubspec.lock') }}
-
-      # 编译移动端APK
-      - name: Build Mobile APK
+      # 拉取依赖
+      - name: Restore packages
         run: |
           cd simple_live_app
           flutter pub get
-          flutter build apk --release
 
-      - name: Upload Mobile Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-apk
-          path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
-
-      # 编译TV端APK
-      - name: Build TV APK
+      # 编译APK，按架构拆分
+      - name: Build APK
         run: |
-          cd simple_live_tv
-          flutter pub get
-          flutter build apk --release
+          cd simple_live_app
+          flutter build apk --release --split-per-abi
 
-      - name: Upload TV Artifact
+      # 上传3个架构APK到制品
+      - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tv-apk
-          path: simple_live_tv/build/app/outputs/flutter-apk/app-release.apk
+          name: android
+          path: |
+            simple_live_app/build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            simple_live_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            simple_live_app/build/app/outputs/flutter-apk/app-x86_64-release.apk
+
+      - run: echo "✅ Android build finished, status: ${{ job.status }}."
