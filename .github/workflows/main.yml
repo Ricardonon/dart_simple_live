@@ -10,10 +10,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      # 签出dev分支代码
+      # 签出代码，master分支
       - uses: actions/checkout@v4
-        with:
-          ref: dev
 
       # APK签名：base64密钥还原
       - name: Download Android keystore
@@ -45,7 +43,7 @@ jobs:
           flutter-version: "3.38.x"
           cache: true
 
-      # 预写入Android License，解决之前卡死问题
+      # 预写入Android License，解决SDK许可卡死问题
       - name: Pre accept Android SDK licenses
         run: |
           mkdir -p ${ANDROID_HOME}/licenses
