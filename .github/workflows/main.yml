@@ -1,0 +1,57 @@
+name: Build SimpleLive APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: # ✅ 支持手动点击触发构建（最重要，随时可以手动编译）
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter 3.38.3
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.3'
+          channel: 'stable'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set Pub Mirror（国内加速）
+        run: |
+          echo "PUB_HOSTED_URL=https://pub.flutter-io.cn" >> $GITHUB_ENV
+          echo "FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn" >> $GITHUB_ENV
+
+      # ========== 编译手机APP simple_live_app ==========
+      - name: Build Mobile App
+        run: |
+          cd simple_live_app
+          flutter pub get
+          flutter build apk --release
+      - name: Upload Mobile APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple_live_mobile_apk
+          path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
+
+      # ========== 编译TV APP simple_live_tv_app ==========
+      - name: Build TV App
+        run: |
+          cd simple_live_tv_app
+          flutter pub get
+          flutter build apk --release
+      - name: Upload TV APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple_live_tv_apk
+          path: simple_live_tv_app/build/app/outputs/flutter-apk/app-release.apk
