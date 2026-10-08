@@ -1,65 +1,70 @@
 name: Build SimpleLive APK
-
 on:
-  push:
-    branches: [ master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Flutter 3.38.3
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.38.3'
-          channel: 'stable'
+          cache: true
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Accept Android Licenses
+      # 直接写入许可文件，100%非交互，不会卡住
+      - name: Pre accept Android SDK licenses
         run: |
-          flutter doctor --android-licenses << EOF
-          y
-          y
-          y
-          y
-          y
-          y
-          EOF
+          mkdir -p ${ANDROID_HOME}/licenses
+          echo "24333f8a63b6825ea9c551483c82fa59b6ef137c" > ${ANDROID_HOME}/licenses/android-sdk-license
+          echo "84831b9409646a918e30573bab4c9c9146dabd14" > ${ANDROID_HOME}/licenses/android-sdk-preview-license
 
-      - name: Set Pub Mirror（国内加速）
+      # Flutter国内镜像加速
+      - name: Set Flutter pub mirror
         run: |
           echo "PUB_HOSTED_URL=https://pub.flutter-io.cn" >> $GITHUB_ENV
           echo "FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn" >> $GITHUB_ENV
 
-      # ========== 编译手机APP simple_live_app ==========
-      - name: Build Mobile App
+      # 缓存dart依赖，大幅减少后续编译等待
+      - name: Cache Flutter Pub
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            **/build
+          key: flutterpub-${{ hashFiles('**/pubspec.lock') }}
+
+      # 编译移动端APK
+      - name: Build Mobile APK
         run: |
           cd simple_live_app
           flutter pub get
           flutter build apk --release
-      - name: Upload Mobile APK
+
+      - name: Upload Mobile Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: simple_live_mobile_apk
+          name: mobile-apk
           path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
 
-      # ========== 编译TV APP simple_live_tv_app ==========
-      - name: Build TV App
+      # 编译TV端APK
+      - name: Build TV APK
         run: |
-          cd simple_live_tv_app
+          cd simple_live_tv
           flutter pub get
           flutter build apk --release
-      - name: Upload TV APK
+
+      - name: Upload TV Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: simple_live_tv_apk
-          path: simple_live_tv_app/build/app/outputs/flutter-apk/app-release.apk
+          name: tv-apk
+          path: simple_live_tv/build/app/outputs/flutter-apk/app-release.apk
