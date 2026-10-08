@@ -2,8 +2,8 @@ name: Build SimpleLive APK
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch: # ✅ 支持手动点击触发构建（最重要，随时可以手动编译）
+    branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,14 +18,22 @@ jobs:
           flutter-version: '3.38.3'
           channel: 'stable'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: Accept Android Licenses
+        run: |
+          flutter doctor --android-licenses << EOF
+          y
+          y
+          y
+          y
+          y
+          y
+          EOF
 
       - name: Set Pub Mirror（国内加速）
         run: |
