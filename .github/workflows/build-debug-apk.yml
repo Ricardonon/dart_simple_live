@@ -33,6 +33,13 @@ jobs:
         working-directory: simple_live_app
         run: flutter pub get
 
+      - name: Inspect auto_orientation_v2 Gradle file
+        working-directory: simple_live_app
+        run: |
+          FILE="$HOME/.pub-cache/hosted/pub.dev/auto_orientation_v2-2.4.7/android/build.gradle"
+          echo "Inspecting: $FILE"
+          nl -ba "$FILE" | sed -n '45,65p'
+
       - name: Build APK
         working-directory: simple_live_app
         run: flutter build apk --debug
