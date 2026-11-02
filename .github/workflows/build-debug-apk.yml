@@ -16,8 +16,7 @@ jobs:
 
       - name: Apply Huya patch
         run: |
-          unzip -o huya_fix_cloud_build_patch.zip -d .
-
+          unzip -o huya_fix_cloud_build_patch_v2.zip -d .
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
